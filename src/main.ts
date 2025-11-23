@@ -15,34 +15,44 @@ const clearButton = document.createElement("button");
 clearButton.textContent = "Clear";
 document.body.append(clearButton);
 
-let drawing = false;
-let lastX = 0;
-let lastY = 0;
+type Point = { x: number; y: number };
+const strokes: Point[][] = [];
+let currentStroke: Point[] | null = null;
 
 canvas.addEventListener("mousedown", (e) => {
-  drawing = true;
-  lastX = e.offsetX;
-  lastY = e.offsetY;
+  currentStroke = [{ x: e.offsetX, y: e.offsetY }];
+  strokes.push(currentStroke);
+  canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
 canvas.addEventListener("mousemove", (e) => {
-  if (!drawing) return;
-  ctx.beginPath();
-  ctx.moveTo(lastX, lastY);
-  ctx.lineTo(e.offsetX, e.offsetY);
-  ctx.stroke();
-  lastX = e.offsetX;
-  lastY = e.offsetY;
+  if (!currentStroke) return;
+  currentStroke.push({ x: e.offsetX, y: e.offsetY });
+  canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
 canvas.addEventListener("mouseup", () => {
-  drawing = false;
+  currentStroke = null;
 });
 
 canvas.addEventListener("mouseleave", () => {
-  drawing = false;
+  currentStroke = null;
 });
 
 clearButton.addEventListener("click", () => {
+  strokes.length = 0;
+  canvas.dispatchEvent(new Event("drawing-changed"));
+});
+
+canvas.addEventListener("drawing-changed", () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.beginPath();
+  for (const stroke of strokes) {
+    if (stroke.length < 2) continue;
+    ctx.moveTo(stroke[0].x, stroke[0].y);
+    for (let i = 1; i < stroke.length; i++) {
+      ctx.lineTo(stroke[i].x, stroke[i].y);
+    }
+  }
+  ctx.stroke();
 });
