@@ -41,23 +41,6 @@ thickButton.addEventListener("click", () => {
 
 updateToolButtons();
 
-const stickers = ["😀", "🌟", "🍕"];
-const stickerButtons: HTMLButtonElement[] = [];
-
-stickers.forEach((emoji) => {
-  const btn = document.createElement("button");
-  btn.textContent = emoji;
-  document.body.append(btn);
-  stickerButtons.push(btn);
-  btn.addEventListener("click", () => {
-    currentTool = "sticker";
-    selectedSticker = emoji;
-    thinButton.classList.remove("selectedTool");
-    thickButton.classList.remove("selectedTool");
-    canvas.dispatchEvent(new Event("tool-moved"));
-  });
-});
-
 const canvas = document.createElement("canvas");
 canvas.width = 256;
 canvas.height = 256;
@@ -166,6 +149,33 @@ class StickerCommand {
     ctx.fillText(this.sticker, this.x, this.y);
   }
 }
+
+const initialStickers: string[] = ["😀", "🌟", "🍕"];
+const stickerButtons: HTMLButtonElement[] = [];
+
+const addStickerButton = (emoji: string) => {
+  const btn = document.createElement("button");
+  btn.textContent = emoji;
+  document.body.append(btn);
+  stickerButtons.push(btn);
+  btn.addEventListener("click", () => {
+    currentTool = "sticker";
+    selectedSticker = emoji;
+    thinButton.classList.remove("selectedTool");
+    thickButton.classList.remove("selectedTool");
+    canvas.dispatchEvent(new Event("tool-moved"));
+  });
+};
+
+initialStickers.forEach(addStickerButton);
+
+const customStickerButton = document.createElement("button");
+customStickerButton.textContent = "Custom Sticker";
+document.body.append(customStickerButton);
+customStickerButton.addEventListener("click", () => {
+  const emoji = prompt("Enter sticker text or emoji:", "🧽");
+  if (emoji) addStickerButton(emoji);
+});
 
 const displayList: (MarkerLine | StickerCommand)[] = [];
 const redoStack: (MarkerLine | StickerCommand)[] = [];
