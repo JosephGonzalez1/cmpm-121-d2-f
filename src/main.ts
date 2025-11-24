@@ -122,8 +122,9 @@ class ToolPreview {
       ctx.textBaseline = "middle";
       ctx.fillText(this.sticker, this.x, this.y);
     } else {
-      ctx.lineWidth = this.thickness;
       ctx.beginPath();
+      ctx.lineWidth = this.thickness;
+      ctx.strokeStyle = "black";
       ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
       ctx.stroke();
     }
