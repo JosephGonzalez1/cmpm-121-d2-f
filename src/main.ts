@@ -78,22 +78,57 @@ class MarkerLine {
   }
 }
 
-const displayList: MarkerLine[] = [];
-let currentCommand: MarkerLine | null = null;
+class ToolPreview {
+  x: number;
+  y: number;
+  thickness: number;
 
+  constructor(x: number, y: number, thickness: number) {
+    this.x = x;
+    this.y = y;
+    this.thickness = thickness;
+  }
+
+  update(x: number, y: number, thickness: number) {
+    this.x = x;
+    this.y = y;
+    this.thickness = thickness;
+  }
+
+  display(ctx: CanvasRenderingContext2D) {
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+const displayList: MarkerLine[] = [];
 const redoStack: MarkerLine[] = [];
+
+let currentCommand: MarkerLine | null = null;
+let preview: ToolPreview | null = null;
 
 canvas.addEventListener("mousedown", (e) => {
   currentCommand = new MarkerLine(e.offsetX, e.offsetY, currentThickness);
   displayList.push(currentCommand);
   redoStack.length = 0;
+  preview = null;
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
 canvas.addEventListener("mousemove", (e) => {
-  if (!currentCommand) return;
-  currentCommand.drag(e.offsetX, e.offsetY);
-  canvas.dispatchEvent(new Event("drawing-changed"));
+  if (currentCommand) {
+    currentCommand.drag(e.offsetX, e.offsetY);
+    canvas.dispatchEvent(new Event("drawing-changed"));
+  } else {
+    if (!preview) {
+      preview = new ToolPreview(e.offsetX, e.offsetY, currentThickness);
+    } else {
+      preview.update(e.offsetX, e.offsetY, currentThickness);
+    }
+    canvas.dispatchEvent(new Event("tool-moved"));
+  }
 });
 
 canvas.addEventListener("mouseup", () => {
@@ -102,11 +137,14 @@ canvas.addEventListener("mouseup", () => {
 
 canvas.addEventListener("mouseleave", () => {
   currentCommand = null;
+  preview = null;
+  canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
 clearButton.addEventListener("click", () => {
   displayList.length = 0;
   redoStack.length = 0;
+  preview = null;
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
@@ -124,7 +162,7 @@ redoButton.addEventListener("click", () => {
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
-canvas.addEventListener("drawing-changed", () => {
+const redraw = () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   for (const command of displayList) {
@@ -132,4 +170,11 @@ canvas.addEventListener("drawing-changed", () => {
     command.display(ctx);
     ctx.stroke();
   }
-});
+
+  if (!currentCommand && preview) {
+    preview.display(ctx);
+  }
+};
+
+canvas.addEventListener("drawing-changed", redraw);
+canvas.addEventListener("tool-moved", redraw);
