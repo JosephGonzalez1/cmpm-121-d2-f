@@ -4,6 +4,7 @@ const title = document.createElement("h1");
 title.textContent = "My Drawing App";
 document.body.append(title);
 
+// Marker thickness buttons
 const thinButton = document.createElement("button");
 thinButton.textContent = "Thin";
 document.body.append(thinButton);
@@ -11,6 +12,10 @@ document.body.append(thinButton);
 const thickButton = document.createElement("button");
 thickButton.textContent = "Thick";
 document.body.append(thickButton);
+
+const randomMarkerButton = document.createElement("button");
+randomMarkerButton.textContent = "Random Marker";
+document.body.append(randomMarkerButton);
 
 let currentThickness = 2;
 let currentTool: "marker" | "sticker" = "marker";
@@ -41,6 +46,35 @@ thickButton.addEventListener("click", () => {
 
 updateToolButtons();
 
+// Marker color buttons
+const colors = ["black", "red", "blue", "green"];
+let currentColor = "black";
+
+colors.forEach((c) => {
+  const btn = document.createElement("button");
+  btn.textContent = c;
+  btn.style.backgroundColor = c;
+  document.body.append(btn);
+  btn.addEventListener("click", () => {
+    currentColor = c;
+  });
+});
+
+// Random Marker button
+randomMarkerButton.addEventListener("click", () => {
+  currentThickness = Math.random() < 0.5 ? 2 : 8;
+  currentColor = colors[Math.floor(Math.random() * colors.length)];
+  currentTool = "marker";
+  selectedSticker = null;
+  updateToolButtons();
+
+  if (preview) {
+    preview.update(preview.x, preview.y, currentThickness, null, currentColor);
+    canvas.dispatchEvent(new Event("tool-moved"));
+  }
+});
+
+// Canvas setup
 const canvas = document.createElement("canvas");
 canvas.width = 256;
 canvas.height = 256;
@@ -49,6 +83,7 @@ document.body.append(canvas);
 
 const ctx = canvas.getContext("2d")!;
 
+// Control buttons
 const clearButton = document.createElement("button");
 clearButton.textContent = "Clear";
 document.body.append(clearButton);
@@ -70,10 +105,12 @@ type Point = { x: number; y: number };
 class MarkerLine {
   points: Point[];
   thickness: number;
+  color: string;
 
-  constructor(x: number, y: number, thickness: number) {
+  constructor(x: number, y: number, thickness: number, color: string) {
     this.points = [{ x, y }];
     this.thickness = thickness;
+    this.color = color;
   }
 
   drag(x: number, y: number) {
@@ -82,11 +119,14 @@ class MarkerLine {
 
   display(ctx: CanvasRenderingContext2D) {
     if (this.points.length < 2) return;
+    ctx.beginPath();
     ctx.lineWidth = this.thickness;
+    ctx.strokeStyle = this.color;
     ctx.moveTo(this.points[0].x, this.points[0].y);
     for (let i = 1; i < this.points.length; i++) {
       ctx.lineTo(this.points[i].x, this.points[i].y);
     }
+    ctx.stroke();
   }
 }
 
@@ -95,24 +135,34 @@ class ToolPreview {
   y: number;
   thickness: number;
   sticker: string | null = null;
+  color: string = "black";
 
   constructor(
     x: number,
     y: number,
     thickness: number,
     sticker: string | null = null,
+    color = "black",
   ) {
     this.x = x;
     this.y = y;
     this.thickness = thickness;
     this.sticker = sticker;
+    this.color = color;
   }
 
-  update(x: number, y: number, thickness: number, sticker: string | null) {
+  update(
+    x: number,
+    y: number,
+    thickness: number,
+    sticker: string | null,
+    color: string,
+  ) {
     this.x = x;
     this.y = y;
     this.thickness = thickness;
     this.sticker = sticker;
+    this.color = color;
   }
 
   display(ctx: CanvasRenderingContext2D) {
@@ -124,7 +174,7 @@ class ToolPreview {
     } else {
       ctx.beginPath();
       ctx.lineWidth = this.thickness;
-      ctx.strokeStyle = "black";
+      ctx.strokeStyle = this.color;
       ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
       ctx.stroke();
     }
@@ -135,6 +185,7 @@ class StickerCommand {
   x: number;
   y: number;
   sticker: string;
+  rotation: number = 0;
 
   constructor(x: number, y: number, sticker: string) {
     this.x = x;
@@ -148,13 +199,18 @@ class StickerCommand {
   }
 
   display(ctx: CanvasRenderingContext2D) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
     ctx.font = "24px serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(this.sticker, this.x, this.y);
+    ctx.fillText(this.sticker, 0, 0);
+    ctx.restore();
   }
 }
 
+// Stickers
 const initialStickers: string[] = ["😀", "🌟", "🍕"];
 const stickerButtons: HTMLButtonElement[] = [];
 
@@ -182,6 +238,7 @@ customStickerButton.addEventListener("click", () => {
   if (text) addStickerButton(text);
 });
 
+// Display and undo/redo
 const displayList: (MarkerLine | StickerCommand)[] = [];
 const redoStack: (MarkerLine | StickerCommand)[] = [];
 
@@ -190,7 +247,12 @@ let preview: ToolPreview | null = null;
 
 canvas.addEventListener("mousedown", (e) => {
   if (currentTool === "marker") {
-    currentCommand = new MarkerLine(e.offsetX, e.offsetY, currentThickness);
+    currentCommand = new MarkerLine(
+      e.offsetX,
+      e.offsetY,
+      currentThickness,
+      currentColor,
+    );
   } else if (currentTool === "sticker" && selectedSticker) {
     currentCommand = new StickerCommand(e.offsetX, e.offsetY, selectedSticker);
   }
@@ -213,6 +275,7 @@ canvas.addEventListener("mousemove", (e) => {
         e.offsetY,
         currentTool === "marker" ? currentThickness : 0,
         selectedSticker,
+        currentColor,
       );
     } else {
       preview.update(
@@ -220,6 +283,7 @@ canvas.addEventListener("mousemove", (e) => {
         e.offsetY,
         currentTool === "marker" ? currentThickness : 0,
         selectedSticker,
+        currentColor,
       );
     }
     canvas.dispatchEvent(new Event("tool-moved"));
