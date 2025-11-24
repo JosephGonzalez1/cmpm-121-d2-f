@@ -61,6 +61,10 @@ const redoButton = document.createElement("button");
 redoButton.textContent = "Redo";
 document.body.append(redoButton);
 
+const exportButton = document.createElement("button");
+exportButton.textContent = "Export";
+document.body.append(exportButton);
+
 type Point = { x: number; y: number };
 
 class MarkerLine {
@@ -113,12 +117,12 @@ class ToolPreview {
 
   display(ctx: CanvasRenderingContext2D) {
     if (this.sticker) {
-      ctx.font = `${this.thickness * 2 + 16}px serif`;
+      ctx.font = `24px serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(this.sticker, this.x, this.y);
     } else {
-      ctx.lineWidth = 1;
+      ctx.lineWidth = this.thickness;
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
       ctx.stroke();
@@ -173,8 +177,8 @@ const customStickerButton = document.createElement("button");
 customStickerButton.textContent = "Custom Sticker";
 document.body.append(customStickerButton);
 customStickerButton.addEventListener("click", () => {
-  const emoji = prompt("Enter sticker text or emoji:", "🧽");
-  if (emoji) addStickerButton(emoji);
+  const text = prompt("Custom sticker text", "🧽");
+  if (text) addStickerButton(text);
 });
 
 const displayList: (MarkerLine | StickerCommand)[] = [];
@@ -206,11 +210,16 @@ canvas.addEventListener("mousemove", (e) => {
       preview = new ToolPreview(
         e.offsetX,
         e.offsetY,
-        currentThickness,
+        currentTool === "marker" ? currentThickness : 0,
         selectedSticker,
       );
     } else {
-      preview.update(e.offsetX, e.offsetY, currentThickness, selectedSticker);
+      preview.update(
+        e.offsetX,
+        e.offsetY,
+        currentTool === "marker" ? currentThickness : 0,
+        selectedSticker,
+      );
     }
     canvas.dispatchEvent(new Event("tool-moved"));
   }
@@ -245,6 +254,27 @@ redoButton.addEventListener("click", () => {
   const restored = redoStack.pop()!;
   displayList.push(restored);
   canvas.dispatchEvent(new Event("drawing-changed"));
+});
+
+exportButton.addEventListener("click", () => {
+  const exportCanvas = document.createElement("canvas");
+  exportCanvas.width = 1024;
+  exportCanvas.height = 1024;
+  const exportCtx = exportCanvas.getContext("2d")!;
+
+  const scaleFactor = exportCanvas.width / canvas.width;
+  exportCtx.scale(scaleFactor, scaleFactor);
+
+  for (const command of displayList) {
+    exportCtx.beginPath();
+    command.display(exportCtx);
+    exportCtx.stroke?.();
+  }
+
+  const anchor = document.createElement("a");
+  anchor.href = exportCanvas.toDataURL("image/png");
+  anchor.download = "sketchpad.png";
+  anchor.click();
 });
 
 const redraw = () => {
